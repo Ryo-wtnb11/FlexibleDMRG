@@ -1,4 +1,5 @@
 using ReTestItems: runtests, @testitem
-using SwapDMRG: SwapDMRG
+using FlexibleDMRG: FlexibleDMRG
 
-runtests(SwapDMRG)
+runtests(FlexibleDMRG)
+
