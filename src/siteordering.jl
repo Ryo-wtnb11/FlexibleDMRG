@@ -1,20 +1,34 @@
 function siteordering(
     H::MPO,
-    psi0::MPS;
-    whole_order = collect(1:N),
+    psi::MPS,
+    sweeps::Sweeps;
+    kwargs...
+)
+    N = length(siteinds(psi))
+    whole_order = collect(1:N)
+    prev_whole_order = copy(whole_order)
+    while true
+        H, psi, whole_order = siteordering(H, psi, whole_order)
+        energy, psi = dmrg(H, psi, sweeps; kwargs...)
+        if whole_order == prev_whole_order
+            break
+        end
+        prev_whole_order = copy(whole_order)
+    end
+    return psi, H, whole_order
+end
+
+function siteordering(
+    H::MPO,
+    psi::MPS,
+    whole_order::Vector{Int};
     nswapsites = 3, # that should be larger than 2.
     maxsweeps=100, # Number of sweeps
     observer=DMRGObserver(;energy_tol=1e-10, minsweeps=10),
     proposer::AbstractSiteOrderProposer=MinimumEESiteOrderProposer(),
 )
-    psi = copy(psi0)
-    N = length(psi)
+    N = length(siteinds(psi))
     prev_whole_order = copy(whole_order)
-
-    check_hascommoninds(siteinds, H, psi0)
-    check_hascommoninds(siteinds, H, psi0')
-    H = permute(H, (linkind, siteinds, linkind))
-    PH = ProjMPO(H)
 
     for ni in 1:maxsweeps
         for (b, ha) in sweepnext(N)
@@ -36,17 +50,13 @@ function siteordering(
                 whole_order[b-nswapsites+1:b] = whole_order[order]
             end
             psi, H = swap_sites(psi, H, before_order, whole_order)
-            # I'm not sure why this is needed.
-            # psi = permute(psi, (linkind, siteinds, linkind))
-            # H = permute(H, (linkind, siteinds, linkind))
-            # PH = ProjMPO(H)
         end
         if prev_whole_order == whole_order
             break
         end
         prev_whole_order = copy(whole_order)
     end
-    return psi, H, whole_order
+    return H, psi, whole_order
 end
 
 function swap_sites(

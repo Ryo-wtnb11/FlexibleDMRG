@@ -55,13 +55,8 @@ function main()
         # (dominant eigenvalue) and optimized MPS
         energy, psi = dmrg(H, psi0, sweeps; kwargs...)
 
-        order = collect(1:N)
-        for i in 1:10
-            psi, H, order = siteordering(H, psi, whole_order=order)
-            @show order
-            energy, psi = dmrg(H, psi, sweeps; kwargs...)
-            @show energy
-        end
+        psi, H, whole_order = siteordering(H, psi, sweeps; kwargs...)
+        @show whole_order
 
         return 0
     end
