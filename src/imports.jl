@@ -2,24 +2,23 @@ using Printf
 using ITensors
 import ITensors:
     @timeit_debug,
-    siteinds,
-    permute
+    permute,
+    Spectrum
 using ITensorMPS
 import ITensorMPS:
     dmrg,
-    checkdone!,
+    siteinds,
     check_hascommoninds,
     MPO,
     MPS,
+    OpSum,
     ProjMPO,
     Sweeps,
-    replacebond!,
-    leftlim,
-    rightlim,
-    setleftlim!,
-    setrightlim!,
     maxlinkdim,
     DMRGObserver
 using KrylovKit
 import KrylovKit:
     eigsolve
+using DataStructures
+import DataStructures:
+    FenwickTree

@@ -1,25 +1,12 @@
 function dmrg(
-    H::MPO,
-    psi0::MPS,
-    sweeps::Sweeps;
-    kwargs...,
-)
-    check_hascommoninds(siteinds, H, psi0)
-    check_hascommoninds(siteinds, H, psi0')
-    H = permute(H, (linkind, siteinds, linkind))
-    PH = ProjMPO(H)
-    return dmrg(PH, psi0, sweeps; kwargs...)
-end
-
-function dmrg(
         PH::ProjMPO,
         psi0::MPS,
         sweeps::Sweeps;
         degeneracy_tol=1e-10,
-        maxiters=10,
+        maxsweeps=10,
         svd_alg=nothing,
-        which_decomp=nothing,
-        observer=NoObserver(),
+        which_decomp="svd",
+        observer=DMRGObserver(;energy_tol=1e-10, minsweeps=10),
         outputlevel=1,
         # eigsolve kwargs
         eigsolve_tol=1e-14,
@@ -47,7 +34,7 @@ function dmrg(
     energy = 0.0
 
     for sw in 1:nsweep(sweeps)
-        for ni in 1:maxiters
+        for ni in 1:maxsweeps
             ni_time = @elapsed begin
             maxtruncerr = 0.0
 
@@ -192,8 +179,7 @@ end
 
 
 function maxdim_with_degeneracycheck(M::MPS, b::Int, phi::ITensor, maxdim::Int; degeneracy_tol=1e-10)
-    # TODO: If structure will be optimized, we need to take check the degeneracy on this structure
-    U, S, V, spec, u, v = svd(phi, inds(M[b]), cutoff=0.0)
+    U, S, V, spec = svd(phi, inds(M[b]), cutoff=0.0)
     length(spec.eigs) <= maxdim && return maxdim
     dim = maxdim
     while dim > 1
