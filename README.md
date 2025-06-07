@@ -14,15 +14,15 @@ Pkg.instantiate()
 ```
 
 ## Example
-You can try the example that is the Heisenberg dimer covering problem in the `examples/dimer_covering.jl` file.
+You can try the example for the dimer covering in the `examples/dimer_covering.jl` file.
 
 ```
 > julia --project
 (FlexibleDMRG) julia> include("examples/dimer_covering.jl")
 ```
 
-Below is the minimal code base of our extension of DMRG.
-Since we rely on the [ITensorMPS.jl](https://github.com/ITensor/ITensorMPS.jl), you should take a deep read of the documentations at least of `dmrg()` and `OpSum()` functions.
+Below is the minimal code base for augumented DMRG method based on the site ordering optimization.
+Since relying on the [ITensorMPS.jl](https://github.com/ITensor/ITensorMPS.jl), you should take a deep read of the docs at least of `dmrg()` and `OpSum()` functions.
 
 ```julia
 using FlexibleDMRG
