@@ -5,8 +5,8 @@ function dmrg(
         degeneracy_tol=1e-10,
         maxsweeps=10,
         svd_alg=nothing,
-        which_decomp="svd",
-        observer=DMRGObserver(;energy_tol=1e-10, minsweeps=10),
+        which_decomp=nothing,
+        observer=DMRGObserver(;energy_tol=1e-13, minsweeps=10),
         outputlevel=1,
         # eigsolve kwargs
         eigsolve_tol=1e-14,
@@ -60,7 +60,6 @@ function dmrg(
                     verbosity=eigsolve_verbosity,
                 )
                 end
-
 
                 energy = first(vals)
                 ## Right now there is a conversion problem in CUDA.jl where `UnifiedMemory` Arrays are being converted

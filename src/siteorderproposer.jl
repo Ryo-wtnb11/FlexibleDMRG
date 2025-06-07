@@ -4,7 +4,12 @@ struct MinimumEESiteOrderProposer <: AbstractSiteOrderProposer end
 
 struct MinimumErrorSiteOrderProposer <: AbstractSiteOrderProposer end
 
-function propose_siteordering(proposer::MinimumEESiteOrderProposer, spectrums::Dict{Vector{Int}, Vector{Spectrum}}, order::Vector{Int})
+function propose_siteordering(
+    proposer::MinimumEESiteOrderProposer,
+    spectrums::Dict{Vector{Int}, Vector{Spectrum}},
+    order::Vector{Int};
+    degeneracy_check::Bool=false,
+)
     entropy = Vector{Float64}(undef, length(keys(spectrums)))
     orders = collect(keys(spectrums))
     for (i, order) in enumerate(orders)
@@ -15,11 +20,18 @@ function propose_siteordering(proposer::MinimumEESiteOrderProposer, spectrums::D
         end
     end
     new_order = orders[argmin(entropy)]
-    entropy[findfirst(==(order), orders)] ≈ minimum(entropy) && return order
+    if degeneracy_check
+        entropy[findfirst(==(order), orders)] ≈ minimum(entropy) && return order
+    end
     return new_order
 end
 
-function propose_siteordering(proposer::MinimumErrorSiteOrderProposer, spectrums::Dict{Vector{Int}, Vector{Spectrum}}, order::Vector{Int})
+function propose_siteordering(
+    proposer::MinimumErrorSiteOrderProposer,
+    spectrums::Dict{Vector{Int}, Vector{Spectrum}},
+    order::Vector{Int};
+    degeneracy_check::Bool=false,
+)
     error = Vector{Float64}(undef, length(keys(spectrums)))
     orders = collect(keys(spectrums))
     for (i, order) in enumerate(orders)
@@ -30,6 +42,8 @@ function propose_siteordering(proposer::MinimumErrorSiteOrderProposer, spectrums
         end
     end
     new_order = orders[argmin(error)]
-    error[findfirst(==(order), orders)] ≈ minimum(error) && return order
+    if degeneracy_check
+        error[findfirst(==(order), orders)] ≈ minimum(error) && return order
+    end
     return new_order
 end

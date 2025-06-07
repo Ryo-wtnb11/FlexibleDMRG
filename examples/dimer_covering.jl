@@ -1,7 +1,7 @@
 using Random
 Random.seed!(123)
 using ITensors, ITensorMPS
-using FlexibleDMRG: dmrg, siteordering
+using FlexibleDMRG: siteordering, MinimumEESiteOrderProposer
 
 function unique_random_pairs(N::Int)
     N % 2 == 0 || error("N must be even here.")
@@ -31,8 +31,6 @@ function main()
             os += 0.5, "S-", i, "S+", j
         end
 
-        @show pairs
-
         H = MPO(os, sites)
 
         # Create an initial random matrix product state
@@ -40,24 +38,28 @@ function main()
 
         # Plan to do 4 steps of sweeps of DMRG. Note that it is not the same as the number of sweeps as in the original dmrg function of ITensorMPS
         sweeps = Sweeps([
-            "maxdim" "cutoff"
-            100 1E-10
+            "maxdim" "cutoff" "noise"
+            100 1E-12 1e-9
         ])
-        kwargs = (
-            degeneracy_tol = 1e-10,
-            outputlevel = 1,
+        # DMRG kwargs
+        dmrg_kwargs = (
+            degeneracy_tol = 1e-8,
+            outputlevel = 0,
             # eigsolve kwargs
-            eigsolve_krylovdim = 20,
-            eigsolve_maxiter = 2,
+            eigsolve_krylovdim = 25,
+            eigsolve_maxiter = 1
+        )
+
+        kwargs = (
+            nswapsites = 3,
+            proposer = MinimumEESiteOrderProposer(),
         )
 
         # Run the DMRG algorithm, returning energy
         # (dominant eigenvalue) and optimized MPS
-        energy, psi = dmrg(H, psi0, sweeps; kwargs...)
-
-        psi, H, whole_order = siteordering(H, psi, sweeps; kwargs...)
+        energy, psi, whole_order = siteordering(H, psi0, sweeps; kwargs..., dmrg_kwargs=dmrg_kwargs)
+        @show pairs
         @show whole_order
-
         return 0
     end
 end

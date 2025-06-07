@@ -9,6 +9,7 @@ import ITensorMPS:
     dmrg,
     siteinds,
     check_hascommoninds,
+    scalartype,
     MPO,
     MPS,
     OpSum,
