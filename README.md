@@ -1,7 +1,7 @@
 # FlexibleDMRG
 
 DMRG implementation including the following features:
- - reconfiguration of the site ordering.
+ - search of the optimal site ordering by swapping local sites.
 
 ## How to use the package
 1. Assuming you have Julia installed. You move to the repo directory and call `julia --project` to start the REPL.
@@ -21,8 +21,8 @@ You can try the example that is the Heisenberg dimer covering problem in the `ex
 (FlexibleDMRG) julia> include("examples/dimer_covering.jl")
 ```
 
-Below is the minimal code for the usage.
-Since we rely on the [ITensorMPS.jl](https://github.com/ITensor/ITensorMPS.jl), you should deep read the documentations at least of `dmrg()` and `OpSum()` functions.
+Below is the minimal code base of our extension of DMRG.
+Since we rely on the [ITensorMPS.jl](https://github.com/ITensor/ITensorMPS.jl), you should take a deep read of the documentations at least of `dmrg()` and `OpSum()` functions.
 
 ```julia
 using FlexibleDMRG
