@@ -36,7 +36,7 @@ function main()
         # Create an initial random matrix product state
         psi0 = random_mps(sites)
 
-        # Plan to do 4 steps of sweeps of DMRG. Note that it is not the same as the number of sweeps as in the original dmrg function of ITensorMPS
+        # Plan to do 1 steps of sweeps of DMRG. Note that it is not the same as the number of sweeps as in the original dmrg function of ITensorMPS
         sweeps = Sweeps([
             "maxdim" "cutoff" "noise"
             100 1E-12 1e-9
