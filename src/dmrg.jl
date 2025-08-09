@@ -3,11 +3,11 @@ function dmrg(
         psi0::MPS,
         sweeps::Sweeps;
         degeneracy_tol=1e-10,
-        maxsweeps=10,
         svd_alg=nothing,
         which_decomp=nothing,
-        observer=DMRGObserver(;energy_tol=1e-13, minsweeps=10),
+        observer=DMRGObserver(;energy_tol=1e-13),
         outputlevel=1,
+        output_keys=[],
         # eigsolve kwargs
         eigsolve_tol=1e-14,
         eigsolve_krylovdim=3,
@@ -33,149 +33,197 @@ function dmrg(
     PH = position!(PH, psi, 1)
     energy = 0.0
 
+    truncerr = 0.0
     for sw in 1:nsweep(sweeps)
-        for ni in 1:maxsweeps
-            ni_time = @elapsed begin
-            maxtruncerr = 0.0
+        sweep_time = @elapsed begin
+        maxtruncerr = 0.0
 
-            for (b, ha) in sweepnext(N)
-                @timeit_debug timer "dmrg: position!" begin
-                PH = position!(PH, psi, b)
-                end
+        for (b, ha) in sweepnext(N)
+            @timeit_debug timer "dmrg: position!" begin
+            PH = position!(PH, psi, b)
+            end
 
-                @timeit_debug timer "dmrg: psi[b]*psi[b+1]" begin
-                phi = psi[b] * psi[b + 1]
-                end
+            @timeit_debug timer "dmrg: psi[b]*psi[b+1]" begin
+            phi = psi[b] * psi[b + 1]
+            end
 
-                @timeit_debug timer "dmrg: eigsolve" begin
-                vals, vecs = eigsolve(
-                    PH,
-                    phi,
-                    1,
-                    eigsolve_which_eigenvalue;
-                    ishermitian,
-                    tol=eigsolve_tol,
-                    krylovdim=eigsolve_krylovdim,
-                    maxiter=eigsolve_maxiter,
-                    verbosity=eigsolve_verbosity,
-                )
-                end
+            @timeit_debug timer "dmrg: eigsolve" begin
+            vals, vecs = eigsolve(
+                PH,
+                phi,
+                1,
+                eigsolve_which_eigenvalue;
+                ishermitian,
+                tol=eigsolve_tol,
+                krylovdim=eigsolve_krylovdim,
+                maxiter=eigsolve_maxiter,
+                verbosity=eigsolve_verbosity,
+            )
+            end
 
-                energy = first(vals)
-                ## Right now there is a conversion problem in CUDA.jl where `UnifiedMemory` Arrays are being converted
-                ## into `DeviceMemory`. This conversion line is here temporarily to fix that problem when it arises
-                ## Adapt is only called when using CUDA backend. CPU will work as implemented previously.
-                ## TODO this might be the only place we really need iscu if its not fixed.
-                phi = if NDTensors.iscu(phi) && NDTensors.iscu(first(vecs))
-                adapt(ITensors.set_eltype(unwrap_array_type(phi), eltype(first(vecs))), first(vecs))
-                else
-                first(vecs)
-                end
+            energy = first(vals)
+            ## Right now there is a conversion problem in CUDA.jl where `UnifiedMemory` Arrays are being converted
+            ## into `DeviceMemory`. This conversion line is here temporarily to fix that problem when it arises
+            ## Adapt is only called when using CUDA backend. CPU will work as implemented previously.
+            ## TODO this might be the only place we really need iscu if its not fixed.
+            phi = if NDTensors.iscu(phi) && NDTensors.iscu(first(vecs))
+            adapt(ITensors.set_eltype(unwrap_array_type(phi), eltype(first(vecs))), first(vecs))
+            else
+            first(vecs)
+            end
 
-                ortho = ha == 1 ? "left" : "right"
+            ortho = ha == 1 ? "left" : "right"
 
-                drho = nothing
-                if noise(sweeps, sw) > 0
-                @timeit_debug timer "dmrg: noiseterm" begin
-                    # Use noise term when determining new MPS basis.
-                    # This is used to preserve the element type of the MPS.
-                    elt = real(scalartype(psi))
-                    drho = elt(noise(sweeps, sw)) * noiseterm(PH, phi, ortho)
-                end
-                end
-
-                @timeit_debug timer "dmrg: replacebond!" begin
-
-                # TODO: If structure will be optimized, we need to take check the degeneracy on this structure
-                maxdim_degeneracy = maxdim_with_degeneracycheck(psi, b, phi, maxdim(sweeps, sw); degeneracy_tol=degeneracy_tol)
-
-                spec = replacebond!(
-                    PH,
-                    psi,
-                    b,
-                    phi;
-                    maxdim=maxdim_degeneracy,
-                    mindim=mindim(sweeps, sw),
-                    cutoff=cutoff(sweeps, sw),
-                    eigen_perturbation=drho,
-                    ortho,
-                    normalize=true,
-                    which_decomp,
-                    svd_alg,
-                )
-                end
-
-                maxtruncerr = max(maxtruncerr, spec.truncerr)
-
-                if outputlevel >= 2
-                @printf("Sweep %d, half %d, bond (%d,%d) energy=%s\n", sw, ha, b, b + 1, energy)
-                @printf(
-                    "  Truncated using cutoff=%.1E maxdim=%d mindim=%d\n",
-                    cutoff(sweeps, sw),
-                    maxdim(sweeps, sw),
-                    mindim(sweeps, sw)
-                )
-                @printf(
-                    "  Trunc. err=%.2E, bond dimension %d\n", spec.truncerr, dim(linkind(psi, b))
-                )
-                flush(stdout)
-                end
-
-                sweep_is_done = (b == 1 && ha == 2)
-                measure!(
-                    observer;
-                    energy,
-                    psi,
-                    projected_operator=PH,
-                    bond=b,
-                    sweep=sw,
-                    half_sweep=ha,
-                    spec,
-                    outputlevel,
-                    sweep_is_done,
-                )
-                # TODO: I don't know much about the measure! function, but it seems to be used to check for convergence
+            drho = nothing
+            if noise(sweeps, sw) > 0
+            @timeit_debug timer "dmrg: noiseterm" begin
+                # Use noise term when determining new MPS basis.
+                # This is used to preserve the element type of the MPS.
+                elt = real(scalartype(psi))
+                drho = elt(noise(sweeps, sw)) * noiseterm(PH, phi, ortho)
             end
             end
-            # Sweep is done
-            if outputlevel >= 1
-                @printf(
-                    "At the sweeps stage %d, after iteration %d, energy=%s  maxlinkdim=%d maxerr=%.2E time=%.3f\n",
-                    sw,
-                    ni,
-                    energy,
-                    maxlinkdim(psi),
-                    maxtruncerr,
-                    ni_time
-                )
-                flush(stdout)
+
+            @timeit_debug timer "dmrg: replacebond!" begin
+
+            # TODO: If structure will be optimized, we need to take check the degeneracy on this structure
+            maxdim_degeneracy = maxdim_with_degeneracycheck(psi, b, phi, maxdim(sweeps, sw); degeneracy_tol=degeneracy_tol)
+
+            spec = replacebond!(
+                PH,
+                psi,
+                b,
+                phi;
+                maxdim=maxdim_degeneracy,
+                mindim=mindim(sweeps, sw),
+                cutoff=cutoff(sweeps, sw),
+                eigen_perturbation=drho,
+                ortho,
+                normalize=true,
+                which_decomp,
+                svd_alg,
+            )
             end
-            isdone = checkdone!(observer; energy, psi, sweep=ni, outputlevel)
-            isdone && break
+
+            maxtruncerr = max(maxtruncerr, spec.truncerr)
+
+            if outputlevel >= 2
+            @printf("Sweep %d, half %d, bond (%d,%d) energy=%s\n", sw, ha, b, b + 1, energy)
+            @printf(
+                "  Truncated using cutoff=%.1E maxdim=%d mindim=%d\n",
+                cutoff(sweeps, sw),
+                maxdim(sweeps, sw),
+                mindim(sweeps, sw)
+            )
+            @printf(
+                "  Trunc. err=%.2E, bond dimension %d\n", spec.truncerr, dim(linkind(psi, b))
+            )
+            flush(stdout)
+            end
+
+            sweep_is_done = (b == 1 && ha == 2)
+            measure!(
+                observer;
+                energy,
+                psi,
+                projected_operator=PH,
+                bond=b,
+                sweep=sw,
+                half_sweep=ha,
+                spec,
+                outputlevel,
+                sweep_is_done,
+            )
+            # TODO: I don't know much about the measure! function, but it seems to be used to check for convergence
         end
+        end
+        # Sweep is done
+        if outputlevel >= 1
+            @printf(
+                "At the sweeps stage %d, energy=%s  maxlinkdim=%d maxerr=%.2E time=%.3f\n",
+                sw,
+                energy,
+                maxlinkdim(psi),
+                maxtruncerr,
+                sweep_time
+            )
+            flush(stdout)
+        end
+        truncerr = maxtruncerr
+        isdone = checkdone!(observer; energy, psi, sweep=sw, outputlevel)
+        isdone && break
     end
-    return (energy, psi)
+
+    outputs = calculate_outputs(psi, truncerr, output_keys)
+
+    return (energy, psi, outputs)
+end
+
+function calculate_outputs(psi::MPS, truncerr::Float64, output_keys::Vector{String})
+    outputs = Dict{String, Any}()
+    if "maxtruncerr" in output_keys
+        outputs["maxtruncerr"] = truncerr
+    end
+    if "maxlinkdim" in output_keys
+        outputs["maxlinkdim"] = maxlinkdim(psi)
+    end
+    if "linkEE" in output_keys
+        outputs["linkEE"] = link_entanglements(psi)
+    end
+    if "siteEE" in output_keys
+        outputs["siteEE"] = site_entanglements(psi)
+    end
+    if "Sx" in output_keys
+        outputs["Sx"] = expect(psi, "Sx")
+    end
+    if "Sy" in output_keys
+        outputs["Sy"] = expect(psi, "Sy")
+    end
+    if "Sz" in output_keys
+        outputs["Sz"] = expect(psi, "Sz")
+    end
+    return outputs
 end
 
 
-function checkdone!(
-        o::DMRGObserver; outputlevel=false, energy=nothing, psi=nothing, sweep=nothing
-    )
-    sweep == 1 && return false
-    if length(real(energies(o))) > o.minsweeps
-        outputlevel > 0 && println("Minimum number of sweeps reached, stopping sweeps stage")
-        return true
+function link_entanglements(psi::MPS)
+    N = length(psi)
+    entanglements = Float64[]
+    for b in 1:N-1
+        orthogonalize!(psi, b)
+        phi = psi[b] * psi[b+1]
+        U,S,V = svd(phi, uniqueinds(phi,psi[b+1]))
+        SvN = 0.0
+        for n=1:dim(S, 1)
+            p = S[n,n]^2
+            SvN -= p * log2(p)
+        end
+        push!(entanglements, SvN)
     end
-    if (
-        abs(real(energies(o))[end]/real(energies(o))[end - 1] - 1.0) < o.etol
-        # TODO: structure of the MPS can be used to check for convergence
-    )
-        outputlevel > 0 && println("Relative energy difference less than $(o.etol), stopping sweeps stage")
-        return true
-    end
-    return false
+    return entanglements
 end
 
+
+function site_entanglements(psi::MPS)
+    N = length(psi)
+    entanglements = Float64[]
+    for b in 1:N
+        orthogonalize!(psi, b)
+        phi = psi[b]
+        rho = phi * prime(psi[b])
+        U,S,V = svd(rho, uniqueind(rho,prime(psi[b])))
+        SvN = 0.0
+        for n=1:dim(S, 1)
+            p = S[n,n]
+            SvN -= p * log2(p)
+        end
+        push!(entanglements, SvN)
+    end
+    return entanglements
+end
+
+
+## Do not override ITensorMPS.checkdone! during precompilation to avoid method overwrite
 
 function maxdim_with_degeneracycheck(M::MPS, b::Int, phi::ITensor, maxdim::Int; degeneracy_tol=1e-10)
     U, S, V, spec = svd(phi, inds(M[b]), cutoff=0.0)

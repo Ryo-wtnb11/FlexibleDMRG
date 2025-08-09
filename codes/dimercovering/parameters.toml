@@ -1,0 +1,17 @@
+[system]
+site_type = "S=1/2"
+system_size = 10
+
+[hamiltonian]
+coupling_file = "couplings.dat"
+
+[dmrg]
+nsweeps = 10
+maxdim = 50
+cutoff = 1e-12
+noise = 1e-10
+nsets = 20
+convergence_count = 5
+energy_tol = 1e-10
+degeneracy_tol = 1e-10
+nswapsites = 3
