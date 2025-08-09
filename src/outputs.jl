@@ -26,7 +26,7 @@ function write_outputs(energy, whole_order, outputs, path::String)
     Sz_col = haskey(outputs, "Sz") ? outputs["Sz"] : fill(missing, N)
 
     sites_df = DataFrame(
-        "site" => 1:N,
+        "siteind" => 1:N,
         "siteEE" => outputs["siteEE"],
         "Sx" => Sx_col,
         "Sy" => Sy_col,
@@ -37,8 +37,8 @@ function write_outputs(energy, whole_order, outputs, path::String)
     # ==== 3) links.csv ====
     linkEE = haskey(outputs, "linkEE") ? outputs["linkEE"] : fill(missing, N-1)
     links_df = DataFrame(
-        "site_i" => 1:N-1,
-        "site_j" => 2:N,
+        "leftind" => 1:N-1,
+        "rightind" => 2:N,
         "linkEE" => linkEE,
     )
     CSV.write(joinpath(path, "links.csv"), links_df)
