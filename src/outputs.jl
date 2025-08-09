@@ -37,8 +37,8 @@ function write_outputs(energy, whole_order, outputs, path::String)
     # ==== 3) links.csv ====
     linkEE = haskey(outputs, "linkEE") ? outputs["linkEE"] : fill(missing, N-1)
     links_df = DataFrame(
-        "i" => 1:N-1,
-        "i+1" => 2:N,
+        "site_i" => 1:N-1,
+        "site_j" => 2:N,
         "linkEE" => linkEE,
     )
     CSV.write(joinpath(path, "links.csv"), links_df)
