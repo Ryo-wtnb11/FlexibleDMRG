@@ -210,8 +210,8 @@ function site_entanglements(psi::MPS)
     for b in 1:N
         orthogonalize!(psi, b)
         phi = psi[b]
-        rho = phi * prime(psi[b])
-        U,S,V = svd(rho, uniqueind(rho,prime(psi[b])))
+        rho = phi * replaceind(phi, siteind(psi, b), siteind(psi, b)')
+        U,S,V = svd(rho, (siteind(psi, b)))
         SvN = 0.0
         for n=1:dim(S, 1)
             p = S[n,n]
@@ -223,7 +223,22 @@ function site_entanglements(psi::MPS)
 end
 
 
-## Do not override ITensorMPS.checkdone! during precompilation to avoid method overwrite
+function ITensorMPS.checkdone!(
+        o::DMRGObserver; outputlevel=false, energy=nothing, psi=nothing, sweep=nothing
+    )
+    sweep == 1 && return false
+    if length(real(energies(o))) > o.minsweeps
+        outputlevel > 0 && println("Minimum number of sweeps reached, stopping sweeps stage")
+        return true
+    end
+    if (
+        abs(real(energies(o))[end]/real(energies(o))[end - 1] - 1.0) < o.etol
+    )
+        outputlevel > 0 && println("Relative energy difference less than $(o.etol), stopping sweeps stage")
+        return true
+    end
+    return false
+end
 
 function maxdim_with_degeneracycheck(M::MPS, b::Int, phi::ITensor, maxdim::Int; degeneracy_tol=1e-10)
     U, S, V, spec = svd(phi, inds(M[b]), cutoff=0.0)
