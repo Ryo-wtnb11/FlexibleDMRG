@@ -23,15 +23,17 @@ function main()
         sites = siteinds("S=1/2", N)
 
         # Heisenberg model
-        os = OpSum()
+        J = 1.0
+        Δ = 1.0
+        interactions = Dict{Tuple{Int,Int}, Vector{Tuple{Float64, Tuple{String, String}}}}()
         pairs = unique_random_pairs(N)
         for (i, j) in pairs
-            os += "Sz", i, "Sz", j
-            os += 0.5, "S+", i, "S-", j
-            os += 0.5, "S-", i, "S+", j
+            interactions[(i, j)] = [
+                (J, ("Sx", "Sx")),
+                (J, ("Sy", "Sy")),
+                (J * Δ, ("Sz", "Sz"))
+            ]
         end
-
-        H = MPO(os, sites)
 
         # Create an initial random matrix product state
         psi0 = random_mps(sites)
@@ -57,7 +59,7 @@ function main()
 
         # Run the DMRG algorithm, returning energy
         # (dominant eigenvalue) and optimized MPS
-        energy, psi, whole_order = siteordering(H, psi0, sweeps; kwargs..., dmrg_kwargs=dmrg_kwargs)
+        energy, psi, whole_order = siteordering(psi0, sweeps, interactions; kwargs..., dmrg_kwargs=dmrg_kwargs)
         @show pairs
         @show whole_order
         return 0

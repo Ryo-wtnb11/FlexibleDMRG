@@ -27,7 +27,17 @@ Since relying on the [ITensorMPS.jl](https://github.com/ITensor/ITensorMPS.jl), 
 ```julia
 using FlexibleDMRG
 
-H = ... # Construct the MPO with `OpSum()`.
+# Define the interactions to construct MPO via `OpSum()`.
+# Noted siteordering() only support Hamiltonian including up to 2-body interactions so far.
+interactions = Dict{Tuple{Int,Int}, Vector{Tuple{Float64, Tuple{String, String}}}}()
+pairs = unique_random_pairs(N)
+for (i, j) in pairs
+    interactions[(i, j)] = [
+        (J, ("Sx", "Sx")),
+        (J, ("Sy", "Sy")),
+        (J * Δ, ("Sz", "Sz"))
+    ]
+end
 psi0 = ... # Construct the MPS with `MPS()`.
 sweeps = ... # Construct the `Sweeps()` object.
 dmrg_kwargs = ... # Construct the `kwargs` dictionary of `dmrg()`.
@@ -37,7 +47,7 @@ kwargs = (
     proposer = MinimumEESiteOrderProposer(), # Proposer of the site ordering.
 )
 
-energy, psi, whole_order = siteordering(H, psi0, sweeps; kwargs..., dmrg_kwargs=dmrg_kwargs)
+energy, psi, whole_order = siteordering(psi0, sweeps, interactions; kwargs..., dmrg_kwargs=dmrg_kwargs)
 ```
 If you put the `nswapsites` as 2, an order is optimized just by adjacent swaps as Ref. [1].
 You can choose `proposer` from `src/siteorderproposer.jl`. The default one is `MinimumEESiteOrderProposer()`, then the order with low entanglement entropy (EE) is proposed as Ref. [2, 3].
